@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: karsajobs-env
+  namespace: karsajobs
+data:
+  MONGO_HOST: "mongo"
+  GO111MODULE: "on"
+  APP_PORT: "8080"

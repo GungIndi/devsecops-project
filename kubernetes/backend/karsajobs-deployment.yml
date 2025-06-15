@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: karsajobs-backend
+  namespace: karsajobs
+  labels:
+    app: karsajobs
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: karsajobs
+  template:
+    metadata:
+      labels:
+        app: karsajobs
+    spec:
+      containers:
+      - name: karsa-be
+        image: ghcr.io/gungindi/karsajobs-backend:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        envFrom:
+          - configMapRef:
+              name: karsajobs-env
+        env:
+          - name: MONGO_USER
+            valueFrom:
+              secretKeyRef:
+                name: mongo-secret
+                key: MONGO_ROOT_USERNAME
+          - name: MONGO_PASS
+            valueFrom:
+              secretKeyRef:
+                name: mongo-secret
+                key: MONGO_ROOT_PASSWORD

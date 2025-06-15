@@ -1,0 +1,88 @@
+  include:
+    - local: /pipelines/common.gitlab-ci.yml
+
+  stages:
+    - code_quality
+    - build
+    - image_scan
+    - release
+    - deploy
+    - rollback
+
+  variables:
+    IMAGE_TAG: "$CI_COMMIT_SHORT_SHA"
+    IMAGE_FRONTEND: "ghcr.io/gungindi/karsajobs-frontend:${IMAGE_TAG}"
+
+  lint:
+    stage: code_quality
+    image: node:14.21-alpine
+    script:
+      - cd karsajobs-fe
+      - npm i
+      - npm run lint
+    allow_failure: true
+
+  sca: 
+    stage: code_quality
+    image: node:14.21-alpine
+    script:
+      - cd karsajobs-fe
+      - npm audit
+    allow_failure: true
+
+  build_frontend:
+    extends: .dind
+    needs:
+      - lint
+      - sca
+    stage: build
+    script:
+      - docker build -t "$IMAGE_FRONTEND" ./karsajobs-fe
+
+  trivy_scan:
+    extends: .dind
+    stage: image_scan
+    needs:
+      - build_frontend
+    script:
+      - docker run --rm aquasec/trivy:0.43.0 image --severity "MEDIUM,HIGH,CRITICAL" "$IMAGE_FRONTEND" | tee trivy-fe-report.txt
+    artifacts:
+      reports:
+        sast: trivy-fe-report.txt
+      paths:
+        - trivy-fe-report.txt
+      expire_in: 1 week
+    allow_failure: true
+
+  release_frontend:
+    extends: .dind
+    before_script:
+      - echo "$REGISTRY_PASSWORD" | docker login ghcr.io -u "$REGISTRY_USER" --password-stdin
+    stage: release
+    needs:
+      - trivy_scan
+    script:
+      - docker push "$IMAGE_FRONTEND"
+    when: manual
+    allow_failure: false
+
+  deploy_frontend:
+    stage: deploy
+    extends: .deploy-app
+    needs: 
+      - release_frontend
+    variables:
+      FOLDER: "frontend"
+      DEPLOYMENT: "karsajobs-frontend"
+      IMAGE: "$IMAGE_FRONTEND"
+      CONTAINER_NAME: karsajobs-ui
+
+  rollback_frontend:
+    stage: rollback
+    extends: .rollout-k8s
+    needs:
+      - deploy_frontend
+    variables:
+      K8S_OBJECT: "deployment"
+      OBJECT_NAME: "karsajobs-frontend"
+      NAMESPACE: "karsajobs"

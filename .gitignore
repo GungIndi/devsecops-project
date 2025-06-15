@@ -1,0 +1,26 @@
+*key.json
+*secret*
+
+# Local .terraform directories
+**/.terraform/*
+.terraform.lock.hcl
+
+# Terraform plan files
+*.tfplan
+
+# Terraform variable overrides (could contain secrets)
+*.tfvars
+*.tfvars.json
+
+# Crash logs
+crash.log
+
+# Sensitive override files (optional)
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terraform state files
+terraform.tfstate
+terraform.tfstate.*

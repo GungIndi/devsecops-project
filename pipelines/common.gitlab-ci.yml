@@ -1,0 +1,61 @@
+.dind:
+  image: docker:24.0.6
+  services:
+    - docker:dind
+
+.k8s-common:
+  image: google/cloud-sdk:slim
+  variables:
+    GCP_PROJECT_ID: "$GCP_PROJECT_ID"
+    GCP_COMPUTE_ZONE: "$GCP_COMPUTE_ZONE"
+    GCP_CLUSTER_NAME: "$GCP_CLUSTER_NAME"
+    NAMESPACE: "karsajobs"
+  before_script:
+    - echo "$GCP_DEPLOY_KEY" | base64 --decode > /tmp/gcp-key.json
+    - apt-get update && apt-get install -y kubectl google-cloud-cli-gke-gcloud-auth-plugin
+    - gcloud auth activate-service-account --key-file /tmp/gcp-key.json
+    - gcloud config set project "$GCP_PROJECT_ID"
+    - gcloud config set compute/zone "$GCP_COMPUTE_ZONE"
+    - gcloud container clusters get-credentials "$GCP_CLUSTER_NAME"
+    - kubectl apply -f ./kubernetes/namespace.yaml
+    - |
+      if !kubectl get secret mongo-secret -n karsajobs &> /dev/null; then
+        kubectl create secret generic mongo-secret \
+          --from-literal=MONGO_ROOT_USERNAME="$MONGO_USER" \
+          --from-literal=MONGO_ROOT_PASSWORD="$MONGO_PASS" \
+          -n "$NAMESPACE"
+      else 
+        echo "mongo-secret already exists. Doing nothing."
+      fi
+
+.helm:
+  extends: .k8s-common
+  script:
+    - curl -sSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+    - helm repo add grafana https://grafana.github.io/helm-charts
+    - |
+      if helm status "$RELEASE_NAME" -n "$NAMESPACE" &> /dev/null; then
+        echo "INFO: Release "$RELEASE_NAME" found. Upgrading..."
+        helm upgrade "$RELEASE_NAME" "$CHART_NAME" -n "$NAMESPACE" -f "$VALUES_FILE"
+      else
+        echo "INFO: Release "$RELEASE_NAME" not found. Installing..."
+        helm install "$RELEASE_NAME" "$CHART_NAME" -n "$NAMESPACE" -f "$VALUES_FILE"
+      fi
+    
+.deploy-app:
+  extends: .k8s-common
+  script: 
+    - echo "$IMAGE"
+    - kubectl set image deployment/"$DEPLOYMENT" -n karsajobs "$CONTAINER_NAME"="$IMAGE"
+    - kubectl apply -f ./kubernetes/"$FOLDER"/
+    - kubectl rollout restart deployment/"$DEPLOYMENT" -n karsajobs
+  when: manual
+  allow_failure: false
+
+.rollout-k8s:
+  extends: .k8s-common
+  script:
+    - kubectl rollout undo "$K8S_OBJECT" "$OBJECT_NAME" -n "$NAMESPACE"
+  when: manual
+  allow_failure: true
+    

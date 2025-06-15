@@ -1,0 +1,23 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: mongo-storage-class
+  namespace: karsajobs
+provisioner: pd.csi.storage.gke.io
+parameters:
+  type: pd-standard
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongo-pv-claim
+  namespace: karsajobs
+spec:
+  storageClassName: mongo-storage-class
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi

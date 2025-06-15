@@ -1,0 +1,57 @@
+include:
+  - local: /pipelines/common.gitlab-ci.yml
+
+stages:
+  - app
+  - infra
+
+sonar_scanner:
+  stage: app
+  image: 
+    name: sonarsource/sonar-scanner-cli:11
+    entrypoint: [""]
+
+  variables:
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"
+    GIT_DEPTH: "0"
+  cache:
+    policy: pull-push
+    key: "sonar-cache-$CI_COMMIT_REF_SLUG"
+    paths:
+      - "${SONAR_USER_HOME}/cache"
+      - sonar-scanner/
+      
+  script: 
+    - sonar-scanner -Dsonar.host.url="${SONAR_HOST_URL}"
+  allow_failure: true
+  rules:
+    - changes:
+      - karsajobs-be/**/*
+      - karsajobs-fe/**/*
+
+backend_pipeline:
+  stage: app
+  trigger:
+    include:
+      - local: '/pipelines/be.gitlab-ci.yml'
+  rules:
+    - changes:
+      - karsajobs-be/**/*
+
+frontend_pipeline:
+  stage: app
+  trigger:
+    include:
+      - local: '/pipelines/fe.gitlab-ci.yml'
+  rules:
+    - changes:
+        - karsajobs-fe/**/*
+
+infra_k8s_pipeline:
+  stage: infra
+  trigger:
+    include:
+    - local: 'pipelines/k8s.gitlab-ci.yml'
+  rules:
+    - changes:
+        - kubernetes/**/*

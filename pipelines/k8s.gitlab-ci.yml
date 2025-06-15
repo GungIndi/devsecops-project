@@ -1,0 +1,77 @@
+include:
+  - local: /pipelines/common.gitlab-ci.yml
+
+stages:
+  - deploy
+  - rollout
+
+deploy_mongo:
+  extends: .k8s-common
+  stage: deploy
+  script:
+    - kubectl apply -f ./kubernetes/mongodb/
+  rules:
+    - changes:
+        - kubernetes/mongodb/**/*
+
+deploy_loki:
+  extends: .helm
+  stage: deploy
+  variables:
+    RELEASE_NAME: "loki"
+    CHART_NAME: "grafana/loki"
+    NAMESPACE: "monitoring"
+    VALUES_FILE: "./kubernetes/monitoring/loki.yaml"
+  rules:
+    - changes: 
+        - ./kubernetes/monitoring/loki.yaml
+
+deploy_grafana_alloy:
+  extends: .helm
+  stage: deploy
+  variables:
+    RELEASE_NAME: "grafana-alloy"
+    CHART_NAME: "grafana/alloy"
+    NAMESPACE: "monitoring"
+    VALUES_FILE: "./kubernetes/monitoring/alloy.yaml"
+  rules:
+    - changes: 
+        - ./kubernetes/monitoring/alloy.yaml
+
+deploy_grafana:
+  extends: .helm
+  stage: deploy
+  variables:
+    RELEASE_NAME: "grafana"
+    CHART_NAME: "grafana/grafana"
+    NAMESPACE: "monitoring"
+    VALUES_FILE: "./kubernetes/monitoring/grafana.yaml"
+  rules:
+    - changes: 
+        - ./kubernetes/monitoring/grafana.yaml
+
+rollback_backend:
+  stage: rollout
+  extends: .rollout-k8s
+  variables:
+    K8S_OBJECT: "deployment"
+    OBJECT_NAME: "karsajobs-backend"
+    NAMESPACE: "karsajobs"
+  needs: 
+    - deploy_backend
+  rules:
+    - changes:
+        - kubernetes/backend/**/*
+
+rollback_frontend:
+  stage: rollout
+  extends: .rollout-k8s
+  variables:
+    K8S_OBJECT: "deployment"
+    OBJECT_NAME: "karsajobs-frontend"
+    NAMESPACE: "karsajobs"
+  needs: 
+    - deploy_frontend
+  rules:
+    - changes:
+        - kubernetes/frontend/**/*

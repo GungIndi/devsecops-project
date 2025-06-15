@@ -1,0 +1,25 @@
+image:
+  repository: grafana/grafana
+  tag: latest
+  pullPolicy: IfNotPresent
+
+resources:
+  requests:
+    memory: 128Mi
+  limits:
+    memory: 512Mi
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+    - name: Loki
+      type: loki
+      url: http://loki-gateway.monitoring.svc.cluster.local
+      access: proxy
+      isDefault: false
+      editable: true
+
+service:
+  type: LoadBalancer
+  port: 80
