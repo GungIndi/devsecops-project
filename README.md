@@ -50,13 +50,6 @@ This is a personal DevSecOps project built as part of my university coursework i
 - Terraform, kubectl, Helm, and GitLab Runner installed.
 - Access to GitHub Container Registry (GHCR).
 
-```
-cd existing_repo
-git remote add origin https://gitlab.com/gungindi/devsecops-project.git
-git branch -M main
-git push -uf origin main
-```
-
 ### 2. Set Up Infrastructure
 
 ```bash
